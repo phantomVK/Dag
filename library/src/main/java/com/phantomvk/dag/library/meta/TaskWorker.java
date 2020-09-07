@@ -8,10 +8,10 @@ import com.phantomvk.dag.library.Dag;
 
 public class TaskWorker implements Runnable {
 
-    private final CommonTask mTask;
+    private final Task mTask;
     private final Dag mDag;
 
-    public TaskWorker(@NonNull CommonTask task, @NonNull Dag dag) {
+    public TaskWorker(@NonNull Task task, @NonNull Dag dag) {
         mTask = task;
         mDag = dag;
     }

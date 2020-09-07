@@ -1,20 +1,23 @@
 package com.phantomvk.dag.library.meta;
 
+import androidx.annotation.Nullable;
+
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 import static android.os.Process.THREAD_PRIORITY_BACKGROUND;
 
-public abstract class CommonTask {
+public abstract class Task {
 
     private final CountDownLatch mLatch;
 
     {
-        List<CommonTask> tasks = dependsOn();
+        List<Class<? extends Task>> tasks = dependsOn();
         mLatch = new CountDownLatch(tasks == null ? 0 : tasks.size());
     }
 
-    public List<CommonTask> dependsOn() {
+    @Nullable
+    public List<Class<? extends Task>> dependsOn() {
         return null;
     }
 

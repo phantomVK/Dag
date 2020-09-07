@@ -4,11 +4,9 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Looper;
 
-import androidx.annotation.MainThread;
-
 import com.phantomvk.dag.library.exector.Executor;
-import com.phantomvk.dag.library.meta.CommonTask;
 import com.phantomvk.dag.library.meta.ComputeTask;
+import com.phantomvk.dag.library.meta.Task;
 import com.phantomvk.dag.library.meta.TaskWorker;
 import com.phantomvk.dag.library.utility.ProcessUtility;
 import com.phantomvk.dag.library.utility.SortUtility;
@@ -29,16 +27,19 @@ public class Dag {
 
     private final boolean isMainProcess;
 
-    private List<CommonTask> mTaskList;
-    private final Map<CommonTask, List<CommonTask>> mTaskChildren;
-    private final List<CommonTask> mMainThreadList;
-    private final List<CommonTask> mThreadPoolList;
+    private final List<Task> mTaskList;
+    private final Map<Class<? extends Task>, Task> mTaskMap;
+    private final Map<Class<? extends Task>, List<Class<? extends Task>>> mTaskChildren;
+    private final List<Task> mMainThreadList;
+    private final List<Task> mThreadPoolList;
 
     private int mWaitCount;
     private CountDownLatch mLatch;
-    private int timeout;
 
-    public final Dag getInstance(Context context) {
+    private long timeout = TIMEOUT_MS;
+    private TimeUnit timeUnit = TimeUnit.MILLISECONDS;
+
+    public static Dag getInstance(Context context) {
         if (context == null) throw new NullPointerException("Context should be null.");
 
         if (sDag == null) {
@@ -59,12 +60,14 @@ public class Dag {
 
         isMainProcess = ProcessUtility.isMainThread(context);
 
+        mTaskList = new ArrayList<>();
+        mTaskMap = new HashMap<>();
         mTaskChildren = new HashMap<>();
         mMainThreadList = new ArrayList<>();
         mThreadPoolList = new ArrayList<>();
     }
 
-    public Dag addTask(CommonTask task) {
+    public Dag addTask(Task task) {
         if (task == null) throw new NullPointerException("Task should not be null");
 
         mTaskList.add(task);
@@ -76,7 +79,6 @@ public class Dag {
         return this;
     }
 
-    @MainThread
     public void start() {
         if (!isMainProcess) {
             throw new RuntimeException("Dag::start() must run on main process.");
@@ -86,14 +88,13 @@ public class Dag {
             throw new RuntimeException("Dag::start() must run on MainThread.");
         }
 
-        List<CommonTask> sorted = SortUtility.sort(mTaskList, mTaskChildren);
-        for (CommonTask task : sorted) {
-            List<CommonTask> l = task.onMainThread() ? mMainThreadList : mThreadPoolList;
+        List<Task> sorted = SortUtility.sort(mTaskList, mTaskMap, mTaskChildren);
+        for (Task task : sorted) {
+            List<Task> l = task.onMainThread() ? mMainThreadList : mThreadPoolList;
             l.add(task);
         }
 
         mLatch = new CountDownLatch(mWaitCount);
-        timeout = (timeout == 0) ? TIMEOUT_MS : timeout;
 
         dispatch();
         await();
@@ -101,45 +102,52 @@ public class Dag {
 
     private void dispatch() {
         Executor executor = Executor.getInstance();
-        for (CommonTask task : mThreadPoolList) {
-            TaskWorker worker = new TaskWorker(task, this);
+        for (Task task : mThreadPoolList) {
 
             if (task instanceof ComputeTask) {
-                executor.getComputeExecutor().execute(worker);
+                executor.getComputeExecutor().execute(new TaskWorker(task, this));
             } else {
-                executor.getIoExecutor().execute(worker);
+                executor.getIoExecutor().execute(new TaskWorker(task, this));
             }
         }
 
-        for (CommonTask task : mMainThreadList) {
+        for (Task task : mMainThreadList) {
             task.run();
         }
     }
 
     private void await() {
         try {
-            mLatch.await(timeout, TimeUnit.MILLISECONDS);
+            mLatch.await(timeout, timeUnit);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
     }
 
-    public void notifyChildren(CommonTask task) {
-        List<? extends CommonTask> list = mTaskChildren.get(task);
+    public void notifyChildren(Task task) {
+        List<Class<? extends Task>> list = mTaskChildren.get(task.getClass());
         if (list == null) return;
 
-        for (CommonTask t : list) {
-            t.doNotify();
+        for (Class<? extends Task> t : list) {
+            Task currTask = mTaskMap.get(t);
+            if (currTask != null) {
+                currTask.doNotify();
+            }
         }
     }
 
-    public void taskFinished(CommonTask task) {
+    private void setTimeout(long timeout, TimeUnit timeUnit) {
+        this.timeout = timeout;
+        this.timeUnit = timeUnit;
+    }
+
+    public void taskFinished(Task task) {
         if (needWaiting(task)) {
             mLatch.countDown();
         }
     }
 
-    private boolean needWaiting(CommonTask task) {
+    private boolean needWaiting(Task task) {
         return !task.onMainThread() && task.shouldWait();
     }
 }
