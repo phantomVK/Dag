@@ -9,14 +9,12 @@ import androidx.annotation.NonNull;
 import com.phantomvk.dag.library.exector.Executor;
 import com.phantomvk.dag.library.meta.ComputeTask;
 import com.phantomvk.dag.library.meta.Task;
-import com.phantomvk.dag.library.utility.ProcessUtility;
 import com.phantomvk.dag.library.utility.DagSolver;
+import com.phantomvk.dag.library.utility.ProcessUtility;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -29,15 +27,13 @@ public class Dag {
 
     private static volatile Dag sInstance;
 
-    private final boolean isMainProcess;
-    private boolean isStarted;
-
-    private int waitCount;
+    private int blockCount;
+    private boolean running;
     private CountDownLatch latch;
     private AtomicInteger taskCount;
 
     private final List<Task> tasks;
-    private final Map<Class<? extends Task>, List<Task>> children;
+    private final boolean isMainProcess;
 
     private long timeout = TIMEOUT_MS;
     private TimeUnit timeUnit = TimeUnit.MILLISECONDS;
@@ -59,18 +55,15 @@ public class Dag {
     private Dag(Context context) {
         isMainProcess = ProcessUtility.isMainProcess(context);
         tasks = new ArrayList<>();
-        children = new HashMap<>();
     }
 
     public Dag addTask(Task task) {
-        if (task == null) {
-            throw new NullPointerException("Task should not be null");
-        }
+        if (task == null) return this;
 
         tasks.add(task);
 
-        if (isBlockMainThread(task)) {
-            waitCount++;
+        if (task.blockMainThread()) {
+            blockCount++;
         }
 
         return this;
@@ -88,10 +81,10 @@ public class Dag {
         }
 
         // Method scope.
-        if (isStarted) {
+        if (running) {
             throw new RuntimeException("Dag::start() should not be called more than once.");
         } else {
-            isStarted = true;
+            running = true;
         }
 
         onVerify();
@@ -114,9 +107,9 @@ public class Dag {
     }
 
     private void onPrepare() {
-        DagSolver.solve(tasks, children);
+        DagSolver.solve(tasks);
         taskCount = new AtomicInteger(tasks.size());
-        latch = new CountDownLatch(waitCount);
+        latch = new CountDownLatch(blockCount);
     }
 
     private void onDispatch() {
@@ -138,7 +131,7 @@ public class Dag {
         }
 
         for (Task task : mainThreadTasks) {
-            task.run();
+            task.onExecute();
         }
     }
 
@@ -151,16 +144,13 @@ public class Dag {
     }
 
     private void notifyChildren(Task task) {
-        List<Task> list = children.get(task.getClass());
-        if (list == null || list.size() == 0) return;
-
-        for (Task t : list) {
+        for (Task t : task.getChildren()) {
             t.doNotify();
         }
     }
 
     private void notifyMainThread(Task task) {
-        if (isBlockMainThread(task)) {
+        if (task.blockMainThread()) {
             latch.countDown();
         }
     }
@@ -178,10 +168,6 @@ public class Dag {
         return this;
     }
 
-    private boolean isBlockMainThread(Task task) {
-        return !task.onMainThread() && task.blockMainThread();
-    }
-
     public class TaskWorker implements Runnable {
 
         private final Task mTask;
@@ -194,8 +180,8 @@ public class Dag {
         public void run() {
             Process.setThreadPriority(mTask.priority());
             mTask.doAwait();
-            mTask.run();
-            notifyChildren(mTask);
+            mTask.onExecute();
+            mTask.onPostExecute();
             notifyMainThread(mTask);
             shutdown();
         }

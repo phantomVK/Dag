@@ -12,9 +12,9 @@ import java.util.List;
 public class AppComputeTask11 extends ComputeTask {
 
     @Override
-    public void run() {
+    public void onExecute() {
         try {
-            Thread.sleep(5000);
+            Thread.sleep(7000);
             Log.e(this.getClass().getName(), "Finished");
         } catch (InterruptedException e) {
             e.printStackTrace();

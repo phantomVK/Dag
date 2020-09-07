@@ -7,7 +7,7 @@ import com.phantomvk.dag.library.meta.ComputeTask;
 public class AppComputeTask8 extends ComputeTask {
 
     @Override
-    public void run() {
+    public void onExecute() {
         try {
             Thread.sleep(5000);
             Log.e(this.getClass().getName(), "Finished");

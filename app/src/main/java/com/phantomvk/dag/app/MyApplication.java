@@ -1,5 +1,7 @@
 package com.phantomvk.dag.app;
 
+import android.app.Application;
+
 import com.phantomvk.dag.app.task.AppComputeTask0;
 import com.phantomvk.dag.app.task.AppComputeTask1;
 import com.phantomvk.dag.app.task.AppComputeTask10;
@@ -16,11 +18,11 @@ import com.phantomvk.dag.library.Dag;
 
 import java.util.concurrent.TimeUnit;
 
-public class Application extends android.app.Application {
+public class MyApplication extends Application {
+
     @Override
     public void onCreate() {
         super.onCreate();
-
         Dag.getInstance(this)
                 .addTask(new AppComputeTask0())
                 .addTask(new AppComputeTask1())

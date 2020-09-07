@@ -4,7 +4,7 @@
     package="com.phantomvk.dag.app">
 
     <application
-        android:name=".Application"
+        android:name=".MyApplication"
         android:icon="@mipmap/ic_launcher"
         android:label="Dag"
         android:roundIcon="@mipmap/ic_launcher_round"
