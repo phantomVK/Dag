@@ -29,6 +29,12 @@ public class Executor {
         return sExecutor;
     }
 
+    public void shutdown() {
+        mComputePoolExecutor.shutdown();
+        mAsyncPoolExecutor.shutdown();
+        sExecutor = null;
+    }
+
     private Executor() {
         mComputePoolExecutor = new ThreadPoolExecutor(CORE_POOL_SIZE, CORE_POOL_SIZE, KEEP_ALIVE,
                 TimeUnit.SECONDS, new LinkedBlockingDeque<>());

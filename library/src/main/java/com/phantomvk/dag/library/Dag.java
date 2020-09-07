@@ -21,17 +21,18 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Dag {
 
     private static final int TIMEOUT_MS = 60 * 1000;
 
-    @SuppressLint("StaticFieldLeak")
     private static volatile Dag sDag;
 
     private final boolean isMainProcess;
     private boolean isStarted;
 
+    private AtomicInteger mTaskCount;
     private final List<Task> mTaskList;
     private final Map<Class<? extends Task>, Task> mTaskMap;
     private final Map<Class<? extends Task>, List<Class<? extends Task>>> mTaskChildren;
@@ -99,6 +100,8 @@ public class Dag {
             isStarted = true;
         }
 
+        mTaskCount = new AtomicInteger(mTaskList.size());
+
         List<Task> sorted = DagSolver.solve(mTaskList, mTaskMap, mTaskChildren);
         for (Task task : sorted) {
             List<Task> l = (task.onMainThread() ? mMainThreadList : mThreadPoolList);
@@ -155,6 +158,13 @@ public class Dag {
         }
     }
 
+    private void tryToShutdown() {
+        if (mTaskCount.decrementAndGet() == 0) {
+            Executor.getInstance().shutdown();
+            sDag = null;
+        }
+    }
+
     public Dag setTimeout(long timeout, TimeUnit timeUnit) {
         this.timeout = timeout;
         this.timeUnit = timeUnit;
@@ -180,6 +190,7 @@ public class Dag {
             mTask.run();
             notifyChildren(mTask);
             taskFinished(mTask);
+            tryToShutdown();
         }
     }
 }
