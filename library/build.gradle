@@ -9,8 +9,8 @@ android {
     defaultConfig {
         minSdkVersion 16
         targetSdkVersion 30
-        versionCode 1
-        versionName "1.0"
+        versionCode rootProject.ext.versionCode
+        versionName rootProject.ext.versionName
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
@@ -29,9 +29,21 @@ android {
 }
 
 dependencies {
-
     implementation 'androidx.appcompat:appcompat:1.2.0'
     testImplementation 'junit:junit:4.13'
     androidTestImplementation 'androidx.test.ext:junit:1.1.2'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
 }
+
+group = "com.phantomvk.slideback"
+
+ext {
+    libraryName = 'Dag'
+    artifact = 'dag'
+    libraryDescription = 'Use directed acyclic graphs to organize tasks in Android.'
+
+    siteUrl = 'https://github.com/phantomVK/dag'
+    gitUrl = 'https://github.com/phantomVK/dag.git'
+}
+
+apply from: rootProject.file('bintray.gradle')

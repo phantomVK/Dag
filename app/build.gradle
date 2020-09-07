@@ -6,20 +6,38 @@ android {
     compileSdkVersion 30
     buildToolsVersion "30.0.2"
 
+    signingConfigs {
+        release {
+            def rootProject = rootProject.file("../config/keystore.properties")
+            if (!rootProject.exists()) return
+
+            def prop = new Properties()
+            new FileInputStream(rootProject).withCloseable { res -> prop.load(res) }
+
+            if (!prop.isEmpty()) {
+                keyAlias prop['keyAlias']
+                keyPassword prop['keyPassword']
+                storePassword prop['storePassword']
+                storeFile file(prop['keyStore'])
+            }
+        }
+    }
     defaultConfig {
         applicationId "com.phantomvk.dag.app"
         minSdkVersion 16
         targetSdkVersion 30
-        versionCode 1
-        versionName "1.0"
+        versionCode rootProject.ext.versionCode
+        versionName rootProject.ext.versionName
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
-
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
+            zipAlignEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
     compileOptions {

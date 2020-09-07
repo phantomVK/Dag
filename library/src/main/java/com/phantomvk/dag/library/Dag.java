@@ -21,9 +21,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Use directed acyclic graphs to organize tasks in Android.
+ */
 public class Dag {
-
-    private static final int TIMEOUT_MS = 60 * 1000; // 60s
 
     private static volatile Dag sInstance;
 
@@ -33,9 +34,9 @@ public class Dag {
     private AtomicInteger taskCount;
 
     private final List<Task> tasks;
-    private final boolean isMainProcess;
+    private final boolean inMainProcess;
 
-    private long timeout = TIMEOUT_MS;
+    private long timeout = 60 * 1000; // 60s
     private TimeUnit timeUnit = TimeUnit.MILLISECONDS;
 
     public static Dag getInstance(Context context) {
@@ -53,12 +54,14 @@ public class Dag {
     }
 
     private Dag(Context context) {
-        isMainProcess = ProcessUtility.isMainProcess(context);
+        inMainProcess = ProcessUtility.isMainProcess(context);
         tasks = new ArrayList<>();
     }
 
     public Dag addTask(Task task) {
-        if (task == null) return this;
+        if (task == null) {
+            throw new NullPointerException("Task should not be null.");
+        }
 
         tasks.add(task);
 
@@ -71,7 +74,7 @@ public class Dag {
 
     public void start() {
         // Process scope.
-        if (!isMainProcess) {
+        if (!inMainProcess) {
             throw new RuntimeException("Dag::start() must run on main process.");
         }
 
@@ -140,12 +143,6 @@ public class Dag {
             latch.await(timeout, timeUnit);
         } catch (InterruptedException e) {
             e.printStackTrace();
-        }
-    }
-
-    private void notifyChildren(Task task) {
-        for (Task t : task.getChildren()) {
-            t.doNotify();
         }
     }
 
