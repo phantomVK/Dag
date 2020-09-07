@@ -1,10 +1,8 @@
 package com.phantomvk.dag.library;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Looper;
 import android.os.Process;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -16,8 +14,10 @@ import com.phantomvk.dag.library.utility.DagSolver;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -25,22 +25,23 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class Dag {
 
-    private static final int TIMEOUT_MS = 60 * 1000;
+    private static final int TIMEOUT_MS = 60 * 1000; // 60s
 
-    private static volatile Dag sDag;
+    private static volatile Dag sInstance;
 
     private final boolean isMainProcess;
     private boolean isStarted;
 
-    private AtomicInteger mTaskCount;
-    private final List<Task> mTaskList;
-    private final Map<Class<? extends Task>, Task> mTaskMap;
-    private final Map<Class<? extends Task>, List<Class<? extends Task>>> mTaskChildren;
-    private final List<Task> mMainThreadList;
-    private final List<Task> mThreadPoolList;
+    private int waitCount;
+    private CountDownLatch latch;
+    private AtomicInteger taskCount;
 
-    private int mWaitCount;
-    private CountDownLatch mLatch;
+    private final List<Task> taskList;
+    private final Map<Class<? extends Task>, List<Task>> taskChildren;
+
+    // Task list to execute.
+    private final List<Task> mainThreadList;
+    private final List<Task> threadPoolList;
 
     private long timeout = TIMEOUT_MS;
     private TimeUnit timeUnit = TimeUnit.MILLISECONDS;
@@ -48,120 +49,131 @@ public class Dag {
     public static Dag getInstance(Context context) {
         if (context == null) throw new NullPointerException("Context should be null.");
 
-        if (sDag == null) {
+        if (sInstance == null) {
             synchronized (Dag.class) {
-                if (sDag == null) {
-                    sDag = new Dag(context);
+                if (sInstance == null) {
+                    sInstance = new Dag(context);
                 }
             }
         }
 
-        return sDag;
+        return sInstance;
     }
 
     private Dag(Context context) {
-        if (context == null) {
-            throw new NullPointerException("Context should not be null.");
-        }
+        isMainProcess = ProcessUtility.isMainProcess(context);
 
-        isMainProcess = ProcessUtility.isMainThread(context);
-
-        mTaskList = new ArrayList<>();
-        mTaskMap = new HashMap<>();
-        mTaskChildren = new HashMap<>();
-        mMainThreadList = new ArrayList<>();
-        mThreadPoolList = new ArrayList<>();
+        taskList = new ArrayList<>();
+        taskChildren = new HashMap<>();
+        mainThreadList = new ArrayList<>();
+        threadPoolList = new ArrayList<>();
     }
 
     public Dag addTask(Task task) {
-        if (task == null) throw new NullPointerException("Task should not be null");
+        if (task == null) {
+            throw new NullPointerException("Task should not be null");
+        }
 
-        mTaskList.add(task);
+        taskList.add(task);
 
-        if (needWaiting(task)) {
-            mWaitCount++;
+        if (isBlockMainThread(task)) {
+            waitCount++;
         }
 
         return this;
     }
 
     public void start() {
+        // Process scope.
         if (!isMainProcess) {
             throw new RuntimeException("Dag::start() must run on main process.");
         }
 
+        // Thread scope.
         if (Looper.getMainLooper() != Looper.myLooper()) {
             throw new RuntimeException("Dag::start() must run on MainThread.");
         }
 
+        // Method scope.
         if (isStarted) {
             throw new RuntimeException("Dag::start() should not be called more than once.");
         } else {
             isStarted = true;
         }
 
-        mTaskCount = new AtomicInteger(mTaskList.size());
-
-        List<Task> sorted = DagSolver.solve(mTaskList, mTaskMap, mTaskChildren);
-        for (Task task : sorted) {
-            List<Task> l = (task.onMainThread() ? mMainThreadList : mThreadPoolList);
-            l.add(task);
-        }
-
-        mLatch = new CountDownLatch(mWaitCount);
-
-        dispatch();
+        onVerify();
+        onPrepare();
+        onDispatch();
         await();
     }
 
-    private void dispatch() {
+    private void onVerify() {
+        Set<Class<? extends Task>> set = new HashSet<>();
+        for (Task task : taskList) {
+            Class<? extends Task> clazz = task.getClass();
 
-        Log.e(Dag.class.getName(), "start.");
+            if (set.contains(clazz)) {
+                throw new RuntimeException("Duplicate class type found: " + clazz.getName());
+            } else {
+                set.add(clazz);
+            }
+        }
+    }
 
+    private void onPrepare() {
+        DagSolver.solve(taskList, taskChildren);
+
+        taskCount = new AtomicInteger(taskList.size());
+        latch = new CountDownLatch(waitCount);
+
+        for (Task task : taskList) {
+            List<Task> l = (task.onMainThread() ? mainThreadList : threadPoolList);
+            l.add(task);
+        }
+    }
+
+    private void onDispatch() {
         Executor executor = Executor.getInstance();
-        ExecutorService compute = executor.getComputeExecutor();
-        ExecutorService async = executor.getAsyncExecutor();
+        ExecutorService compute = executor.computeExecutor();
+        ExecutorService async = executor.asyncExecutor();
 
-        for (Task task : mThreadPoolList) {
+        for (Task task : threadPoolList) {
             ExecutorService service = (task instanceof ComputeTask) ? compute : async;
             service.execute(new TaskWorker(task));
         }
 
-        for (Task task : mMainThreadList) {
+        for (Task task : mainThreadList) {
             task.run();
         }
     }
 
     private void await() {
         try {
-            mLatch.await(timeout, timeUnit);
+            latch.await(timeout, timeUnit);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
     }
 
     private void notifyChildren(Task task) {
-        List<Class<? extends Task>> list = mTaskChildren.get(task.getClass());
-        if (list == null) return;
+        List<Task> list = taskChildren.get(task.getClass());
+        if (list == null || list.size() == 0) return;
 
-        for (Class<? extends Task> t : list) {
-            Task currTask = mTaskMap.get(t);
-            if (currTask != null) {
-                currTask.doNotify();
-            }
+        for (Task t : list) {
+            t.doNotify();
         }
     }
 
-    private void taskFinished(Task task) {
-        if (needWaiting(task)) {
-            mLatch.countDown();
+    private void notifyMainThread(Task task) {
+        if (isBlockMainThread(task)) {
+            latch.countDown();
         }
     }
 
-    private void tryToShutdown() {
-        if (mTaskCount.decrementAndGet() == 0) {
+    private void shutdown() {
+        if (taskCount.decrementAndGet() == 0) {
             Executor.getInstance().shutdown();
-            sDag = null;
+            sInstance = null;
         }
     }
 
@@ -171,8 +183,8 @@ public class Dag {
         return this;
     }
 
-    private boolean needWaiting(Task task) {
-        return !task.onMainThread() && task.shouldWait();
+    private boolean isBlockMainThread(Task task) {
+        return !task.onMainThread() && task.blockMainThread();
     }
 
     public class TaskWorker implements Runnable {
@@ -189,8 +201,8 @@ public class Dag {
             mTask.doAwait();
             mTask.run();
             notifyChildren(mTask);
-            taskFinished(mTask);
-            tryToShutdown();
+            notifyMainThread(mTask);
+            shutdown();
         }
     }
 }

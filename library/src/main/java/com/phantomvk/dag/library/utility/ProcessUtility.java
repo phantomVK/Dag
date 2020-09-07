@@ -11,7 +11,7 @@ import java.util.List;
 
 public final class ProcessUtility {
 
-    public static boolean isMainThread(@NonNull Context context) {
+    public static boolean isMainProcess(@NonNull Context context) {
         return context.getPackageName().equals(getProcessName(context));
     }
 

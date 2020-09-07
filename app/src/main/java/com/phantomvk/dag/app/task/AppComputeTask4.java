@@ -2,13 +2,13 @@ package com.phantomvk.dag.app.task;
 
 import android.util.Log;
 
-import com.phantomvk.dag.library.meta.Task;
 import com.phantomvk.dag.library.meta.ComputeTask;
+import com.phantomvk.dag.library.meta.Task;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class AppComputeTask3 extends ComputeTask {
+public class AppComputeTask4 extends ComputeTask {
 
     @Override
     public void run() {
@@ -18,12 +18,5 @@ public class AppComputeTask3 extends ComputeTask {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-    }
-
-    @Override
-    public List<Class<? extends Task>> dependsOn() {
-        List<Class<? extends Task>> list = new ArrayList<>(2);
-        list.add(AppComputeTask2.class);
-        return list;
     }
 }

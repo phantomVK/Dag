@@ -6,7 +6,7 @@
     <application
         android:name=".Application"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
+        android:label="Dag"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Dag"

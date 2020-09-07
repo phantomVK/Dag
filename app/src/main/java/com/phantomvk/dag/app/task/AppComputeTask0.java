@@ -9,7 +9,7 @@ public class AppComputeTask0 extends ComputeTask {
     @Override
     public void run() {
         try {
-            Thread.sleep(300);
+            Thread.sleep(5000);
             Log.e(this.getClass().getName(), "Finished");
         } catch (InterruptedException e) {
             e.printStackTrace();

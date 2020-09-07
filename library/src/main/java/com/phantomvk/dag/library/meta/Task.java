@@ -5,15 +5,17 @@ import androidx.annotation.Nullable;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
-import static android.os.Process.THREAD_PRIORITY_BACKGROUND;
+import static android.os.Process.THREAD_PRIORITY_DEFAULT;
 
 public abstract class Task {
 
-    private final CountDownLatch mLatch;
+    private int degree;
+    private final CountDownLatch latch;
 
     {
         List<Class<? extends Task>> tasks = dependsOn();
-        mLatch = new CountDownLatch(tasks == null ? 0 : tasks.size());
+        degree = (tasks == null) ? 0 : tasks.size();
+        latch = new CountDownLatch(degree);
     }
 
     @Nullable
@@ -23,7 +25,7 @@ public abstract class Task {
 
     public void doAwait() {
         try {
-            mLatch.await();
+            latch.await();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -32,10 +34,10 @@ public abstract class Task {
     public abstract void run();
 
     public void doNotify() {
-        mLatch.countDown();
+        latch.countDown();
     }
 
-    public boolean shouldWait() {
+    public boolean blockMainThread() {
         return false;
     }
 
@@ -44,6 +46,14 @@ public abstract class Task {
     }
 
     public int priority() {
-        return THREAD_PRIORITY_BACKGROUND;
+        return THREAD_PRIORITY_DEFAULT;
+    }
+
+    public int getDegree() {
+        return degree;
+    }
+
+    public int decreaseDegree() {
+        return --degree;
     }
 }
