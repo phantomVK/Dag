@@ -35,7 +35,7 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
 }
 
-group = "com.phantomvk.slideback"
+group = "com.phantomvk.dag"
 
 ext {
     libraryName = 'Dag'
