@@ -3,19 +3,23 @@ package com.phantomvk.dag.library;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Looper;
+import android.os.Process;
+import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import com.phantomvk.dag.library.exector.Executor;
 import com.phantomvk.dag.library.meta.ComputeTask;
 import com.phantomvk.dag.library.meta.Task;
-import com.phantomvk.dag.library.meta.TaskWorker;
 import com.phantomvk.dag.library.utility.ProcessUtility;
-import com.phantomvk.dag.library.utility.SortUtility;
+import com.phantomvk.dag.library.utility.DagSolver;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class Dag {
@@ -26,6 +30,7 @@ public class Dag {
     private static volatile Dag sDag;
 
     private final boolean isMainProcess;
+    private boolean isStarted;
 
     private final List<Task> mTaskList;
     private final Map<Class<? extends Task>, Task> mTaskMap;
@@ -88,9 +93,15 @@ public class Dag {
             throw new RuntimeException("Dag::start() must run on MainThread.");
         }
 
-        List<Task> sorted = SortUtility.sort(mTaskList, mTaskMap, mTaskChildren);
+        if (isStarted) {
+            throw new RuntimeException("Dag::start() should not be called more than once.");
+        } else {
+            isStarted = true;
+        }
+
+        List<Task> sorted = DagSolver.solve(mTaskList, mTaskMap, mTaskChildren);
         for (Task task : sorted) {
-            List<Task> l = task.onMainThread() ? mMainThreadList : mThreadPoolList;
+            List<Task> l = (task.onMainThread() ? mMainThreadList : mThreadPoolList);
             l.add(task);
         }
 
@@ -101,14 +112,16 @@ public class Dag {
     }
 
     private void dispatch() {
-        Executor executor = Executor.getInstance();
-        for (Task task : mThreadPoolList) {
 
-            if (task instanceof ComputeTask) {
-                executor.getComputeExecutor().execute(new TaskWorker(task, this));
-            } else {
-                executor.getIoExecutor().execute(new TaskWorker(task, this));
-            }
+        Log.e(Dag.class.getName(), "start.");
+
+        Executor executor = Executor.getInstance();
+        ExecutorService compute = executor.getComputeExecutor();
+        ExecutorService async = executor.getAsyncExecutor();
+
+        for (Task task : mThreadPoolList) {
+            ExecutorService service = (task instanceof ComputeTask) ? compute : async;
+            service.execute(new TaskWorker(task));
         }
 
         for (Task task : mMainThreadList) {
@@ -124,7 +137,7 @@ public class Dag {
         }
     }
 
-    public void notifyChildren(Task task) {
+    private void notifyChildren(Task task) {
         List<Class<? extends Task>> list = mTaskChildren.get(task.getClass());
         if (list == null) return;
 
@@ -136,18 +149,37 @@ public class Dag {
         }
     }
 
-    private void setTimeout(long timeout, TimeUnit timeUnit) {
-        this.timeout = timeout;
-        this.timeUnit = timeUnit;
-    }
-
-    public void taskFinished(Task task) {
+    private void taskFinished(Task task) {
         if (needWaiting(task)) {
             mLatch.countDown();
         }
     }
 
+    public Dag setTimeout(long timeout, TimeUnit timeUnit) {
+        this.timeout = timeout;
+        this.timeUnit = timeUnit;
+        return this;
+    }
+
     private boolean needWaiting(Task task) {
         return !task.onMainThread() && task.shouldWait();
+    }
+
+    public class TaskWorker implements Runnable {
+
+        private final Task mTask;
+
+        public TaskWorker(@NonNull Task task) {
+            mTask = task;
+        }
+
+        @Override
+        public void run() {
+            Process.setThreadPriority(mTask.priority());
+            mTask.doAwait();
+            mTask.run();
+            notifyChildren(mTask);
+            taskFinished(mTask);
+        }
     }
 }

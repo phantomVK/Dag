@@ -1,6 +1,7 @@
 package com.phantomvk.dag.library.utility;
 
 import com.phantomvk.dag.library.meta.Task;
+import com.phantomvk.dag.library.meta.TaskDegree;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -9,31 +10,35 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class SortUtility {
+@SuppressWarnings("ConstantConditions")
+public class DagSolver {
 
-    @SuppressWarnings("ConstantConditions")
-    public static List<Task> sort(
+    public static List<Task> solve(
             List<Task> tasks,
             Map<Class<? extends Task>, Task> taskMap,
             Map<Class<? extends Task>, List<Class<? extends Task>>> taskChildren) {
 
-        Map<Task, TaskDegree> degreeMap = new HashMap<>();
+        Map<Class<? extends Task>, TaskDegree> degreeMap = new HashMap<>();
         Deque<Class<? extends Task>> queue = new ArrayDeque<>();
         List<Task> sorted = new ArrayList<>();
 
         for (Task task : tasks) {
-            int inDegree = task.dependsOn() == null ? 0 : task.dependsOn().size();
+            List<Class<? extends Task>> list = task.dependsOn();
+            int inDegree = list == null ? 0 : list.size();
             taskChildren.put(task.getClass(), new ArrayList<>());
+            taskMap.put(task.getClass(), task);
+            degreeMap.put(task.getClass(), new TaskDegree(inDegree));
 
             if (inDegree == 0) {
                 queue.addLast(task.getClass());
-            } else {
-                degreeMap.put(task, new TaskDegree(inDegree));
             }
         }
 
         for (Task child : tasks) {
-            for (Class<? extends Task> ancestor : child.dependsOn()) {
+            List<Class<? extends Task>> list = child.dependsOn();
+            if (list == null) continue;
+
+            for (Class<? extends Task> ancestor : list) {
                 taskChildren.get(ancestor).add(child.getClass());
             }
         }
@@ -57,13 +62,5 @@ public class SortUtility {
         }
 
         return sorted;
-    }
-
-    private static class TaskDegree {
-        public int inDegree;
-
-        TaskDegree(int degree) {
-            inDegree = degree;
-        }
     }
 }

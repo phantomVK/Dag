@@ -1,6 +1,5 @@
 package com.phantomvk.dag.library.exector;
 
-import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -16,7 +15,7 @@ public class Executor {
     private static final int KEEP_ALIVE = 4;
 
     private final ThreadPoolExecutor mComputePoolExecutor;
-    private final ExecutorService mIoPoolExecutor;
+    private final ExecutorService mAsyncPoolExecutor;
 
     public static Executor getInstance() {
         if (sExecutor == null) {
@@ -34,14 +33,14 @@ public class Executor {
         mComputePoolExecutor = new ThreadPoolExecutor(CORE_POOL_SIZE, CORE_POOL_SIZE, KEEP_ALIVE,
                 TimeUnit.SECONDS, new LinkedBlockingDeque<>());
         mComputePoolExecutor.allowCoreThreadTimeOut(true);
-        mIoPoolExecutor = Executors.newCachedThreadPool(Executors.defaultThreadFactory());
+        mAsyncPoolExecutor = Executors.newCachedThreadPool(Executors.defaultThreadFactory());
     }
 
     public ExecutorService getComputeExecutor() {
         return mComputePoolExecutor;
     }
 
-    public ExecutorService getIoExecutor() {
-        return mIoPoolExecutor;
+    public ExecutorService getAsyncExecutor() {
+        return mAsyncPoolExecutor;
     }
 }

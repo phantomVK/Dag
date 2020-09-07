@@ -21,9 +21,9 @@ public abstract class Task {
         return null;
     }
 
-    public void doWait() {
+    public void doAwait() {
         try {
-            mLatch.wait();
+            mLatch.await();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
