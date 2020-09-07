@@ -36,12 +36,8 @@ public class Dag {
     private CountDownLatch latch;
     private AtomicInteger taskCount;
 
-    private final List<Task> taskList;
-    private final Map<Class<? extends Task>, List<Task>> taskChildren;
-
-    // Task list to execute.
-    private final List<Task> mainThreadList;
-    private final List<Task> threadPoolList;
+    private final List<Task> tasks;
+    private final Map<Class<? extends Task>, List<Task>> children;
 
     private long timeout = TIMEOUT_MS;
     private TimeUnit timeUnit = TimeUnit.MILLISECONDS;
@@ -62,11 +58,8 @@ public class Dag {
 
     private Dag(Context context) {
         isMainProcess = ProcessUtility.isMainProcess(context);
-
-        taskList = new ArrayList<>();
-        taskChildren = new HashMap<>();
-        mainThreadList = new ArrayList<>();
-        threadPoolList = new ArrayList<>();
+        tasks = new ArrayList<>();
+        children = new HashMap<>();
     }
 
     public Dag addTask(Task task) {
@@ -74,7 +67,7 @@ public class Dag {
             throw new NullPointerException("Task should not be null");
         }
 
-        taskList.add(task);
+        tasks.add(task);
 
         if (isBlockMainThread(task)) {
             waitCount++;
@@ -109,7 +102,7 @@ public class Dag {
 
     private void onVerify() {
         Set<Class<? extends Task>> set = new HashSet<>();
-        for (Task task : taskList) {
+        for (Task task : tasks) {
             Class<? extends Task> clazz = task.getClass();
 
             if (set.contains(clazz)) {
@@ -121,28 +114,30 @@ public class Dag {
     }
 
     private void onPrepare() {
-        DagSolver.solve(taskList, taskChildren);
-
-        taskCount = new AtomicInteger(taskList.size());
+        DagSolver.solve(tasks, children);
+        taskCount = new AtomicInteger(tasks.size());
         latch = new CountDownLatch(waitCount);
-
-        for (Task task : taskList) {
-            List<Task> l = (task.onMainThread() ? mainThreadList : threadPoolList);
-            l.add(task);
-        }
     }
 
     private void onDispatch() {
+        List<Task> subThreadTasks = new ArrayList<>();
+        List<Task> mainThreadTasks = new ArrayList<>();
+
+        for (Task task : tasks) {
+            List<Task> l = (task.onMainThread() ? mainThreadTasks : subThreadTasks);
+            l.add(task);
+        }
+
         Executor executor = Executor.getInstance();
         ExecutorService compute = executor.computeExecutor();
         ExecutorService async = executor.asyncExecutor();
 
-        for (Task task : threadPoolList) {
+        for (Task task : subThreadTasks) {
             ExecutorService service = (task instanceof ComputeTask) ? compute : async;
             service.execute(new TaskWorker(task));
         }
 
-        for (Task task : mainThreadList) {
+        for (Task task : mainThreadTasks) {
             task.run();
         }
     }
@@ -156,7 +151,7 @@ public class Dag {
     }
 
     private void notifyChildren(Task task) {
-        List<Task> list = taskChildren.get(task.getClass());
+        List<Task> list = children.get(task.getClass());
         if (list == null || list.size() == 0) return;
 
         for (Task t : list) {

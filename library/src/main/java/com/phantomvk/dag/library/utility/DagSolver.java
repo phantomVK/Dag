@@ -13,7 +13,7 @@ public class DagSolver {
     @SuppressWarnings("ConstantConditions")
     public static void solve(List<Task> tasks, Map<Class<? extends Task>, List<Task>> childrenMap) {
         Deque<Task> queue = new ArrayDeque<>();
-        List<Task> sorted = new ArrayList<>();
+        List<Task> sorted = new ArrayList<>(tasks.size());
 
         for (Task task : tasks) {
             if (task.getDegree() == 0) {
