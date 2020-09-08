@@ -9,18 +9,18 @@ import java.util.List;
 
 public final class ProcessUtility {
 
-    public static boolean isMainProcess(Context context) {
+    public static boolean inMainProcess(Context context) {
         return context.getPackageName().equals(getProcessName(context));
     }
 
     public static String getProcessName(Context context) {
         ActivityManager m = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-        List<RunningAppProcessInfo> info = m.getRunningAppProcesses();
+        List<RunningAppProcessInfo> inf = m.getRunningAppProcesses();
 
-        if (info == null || info.size() == 0) return null;
+        if (inf == null || inf.size() == 0) return null;
 
         int myPid = Process.myPid();
-        for (RunningAppProcessInfo i : info) {
+        for (RunningAppProcessInfo i : inf) {
             if (i.pid == myPid) return i.processName;
         }
 

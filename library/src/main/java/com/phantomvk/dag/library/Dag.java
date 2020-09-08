@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Use directed acyclic graphs to organize tasks in Android.
  */
-public class Dag {
+public final class Dag {
 
     private static volatile Dag sInstance;
 
@@ -74,7 +74,7 @@ public class Dag {
     private Dag(Context context) {
         tasks = new ArrayList<>();
         priority = Process.THREAD_PRIORITY_BACKGROUND;
-        inMainProcess = ProcessUtility.isMainProcess(context);
+        inMainProcess = ProcessUtility.inMainProcess(context);
     }
 
     /**

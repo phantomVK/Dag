@@ -10,8 +10,6 @@ import java.util.List;
 import java.util.Map;
 
 public class DagSolver {
-
-    @SuppressWarnings("ConstantConditions")
     public static void solve(List<Task> tasks) {
         int size = tasks.size();
         Deque<Task> queue = new ArrayDeque<>();
@@ -23,12 +21,13 @@ public class DagSolver {
         }
 
         for (Task task : tasks) {
-            if (task.getDegree() == 0) {
+            List<Class<? extends Task>> list = task.dependsOn();
+            if (list == null || list.isEmpty()) {
                 queue.addLast(task);
                 continue;
             }
 
-            for (Class<? extends Task> prevTask : task.dependsOn()) {
+            for (Class<? extends Task> prevTask : list) {
                 map.get(prevTask).getChildren().add(task);
             }
         }
