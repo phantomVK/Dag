@@ -4,9 +4,8 @@ import android.content.Context;
 import android.os.Looper;
 import android.os.Process;
 
-import androidx.annotation.NonNull;
-
 import com.phantomvk.dag.library.exector.Executor;
+import com.phantomvk.dag.library.meta.AsyncTask;
 import com.phantomvk.dag.library.meta.ComputeTask;
 import com.phantomvk.dag.library.meta.Task;
 import com.phantomvk.dag.library.utility.DagSolver;
@@ -28,14 +27,33 @@ public class Dag {
 
     private static volatile Dag sInstance;
 
-    private int blockCount;
+    /**
+     * {@link Dag#start()} can be called only once.
+     */
     private boolean running;
+
+    /**
+     * CountDownLatch to block MainThread.
+     */
     private CountDownLatch latch;
+
+    /**
+     * Count down to shutdown ExecuteService until {@param taskCount} is 0.
+     */
     private AtomicInteger taskCount;
 
+    /**
+     * Thread priority, see {@link android.os.Process}.
+     */
+    private int priority;
+
+    /**
+     * Task list, for more information, see {@link Task}.
+     */
     private final List<Task> tasks;
     private final boolean inMainProcess;
 
+    // Dag global timeout.
     private long timeout = 60 * 1000; // 60s
     private TimeUnit timeUnit = TimeUnit.MILLISECONDS;
 
@@ -54,10 +72,17 @@ public class Dag {
     }
 
     private Dag(Context context) {
-        inMainProcess = ProcessUtility.isMainProcess(context);
         tasks = new ArrayList<>();
+        priority = Process.THREAD_PRIORITY_BACKGROUND;
+        inMainProcess = ProcessUtility.isMainProcess(context);
     }
 
+    /**
+     * Add task to Dag.
+     *
+     * @param task see {@link AsyncTask} and {@link ComputeTask}.
+     * @return Dag instance
+     */
     public Dag addTask(Task task) {
         if (task == null) {
             throw new NullPointerException("Task should not be null.");
@@ -65,13 +90,12 @@ public class Dag {
 
         tasks.add(task);
 
-        if (task.blockMainThread()) {
-            blockCount++;
-        }
-
         return this;
     }
 
+    /**
+     * Start to execute tasks, this method can be called only once.
+     */
     public void start() {
         // Process scope.
         if (!inMainProcess) {
@@ -112,6 +136,10 @@ public class Dag {
     private void onPrepare() {
         DagSolver.solve(tasks);
         taskCount = new AtomicInteger(tasks.size());
+
+        // The count of tasks that MainThread should block and wait.
+        int blockCount = 0;
+        for (Task t : tasks) if (t.blockMainThread()) blockCount++;
         latch = new CountDownLatch(blockCount);
     }
 
@@ -120,7 +148,7 @@ public class Dag {
         List<Task> mainThreadTasks = new ArrayList<>();
 
         for (Task task : tasks) {
-            List<Task> l = (task.onMainThread() ? mainThreadTasks : subThreadTasks);
+            List<Task> l = (task.inMainThread() ? mainThreadTasks : subThreadTasks);
             l.add(task);
         }
 
@@ -154,28 +182,46 @@ public class Dag {
 
     private void shutdown() {
         if (taskCount.decrementAndGet() == 0) {
-            Executor.getInstance().shutdown();
+            Executor.shutdown();
             sInstance = null;
         }
     }
 
+    /**
+     * Set thread priority.
+     *
+     * @param priority see {@link Process}.
+     * @return Dag instance
+     */
+    public Dag setPriority(int priority) {
+        this.priority = priority;
+        return this;
+    }
+
+    /**
+     * Set dag global timeout.
+     *
+     * @param timeout  long-integer timeout.
+     * @param timeUnit see {@link TimeUnit}.
+     * @return Dag instance
+     */
     public Dag setTimeout(long timeout, TimeUnit timeUnit) {
         this.timeout = timeout;
         this.timeUnit = timeUnit;
         return this;
     }
 
-    public class TaskWorker implements Runnable {
+    private class TaskWorker implements Runnable {
 
         private final Task mTask;
 
-        public TaskWorker(@NonNull Task task) {
+        public TaskWorker(Task task) {
             mTask = task;
         }
 
         @Override
         public void run() {
-            Process.setThreadPriority(mTask.priority());
+            Process.setThreadPriority(priority);
             mTask.doAwait();
             mTask.onExecute();
             mTask.onPostExecute();

@@ -14,20 +14,10 @@ public class AppComputeTask11 extends ComputeTask {
     @Override
     public void onExecute() {
         try {
-            Thread.sleep(7000);
+            Thread.sleep(10000);
             Log.e(this.getClass().getName(), "Finished");
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-    }
-
-    @Override
-    public List<Class<? extends Task>> dependsOn() {
-        return Collections.singletonList(AppComputeTask10.class);
-    }
-
-    @Override
-    public boolean blockMainThread() {
-        return true;
     }
 }

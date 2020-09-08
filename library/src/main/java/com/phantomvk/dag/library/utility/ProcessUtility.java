@@ -5,17 +5,15 @@ import android.app.ActivityManager.RunningAppProcessInfo;
 import android.content.Context;
 import android.os.Process;
 
-import androidx.annotation.NonNull;
-
 import java.util.List;
 
 public final class ProcessUtility {
 
-    public static boolean isMainProcess(@NonNull Context context) {
+    public static boolean isMainProcess(Context context) {
         return context.getPackageName().equals(getProcessName(context));
     }
 
-    public static String getProcessName(@NonNull Context context) {
+    public static String getProcessName(Context context) {
         ActivityManager m = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
         List<RunningAppProcessInfo> info = m.getRunningAppProcesses();
 

@@ -1,13 +1,10 @@
 package com.phantomvk.dag.library.meta;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-
-import static android.os.Process.THREAD_PRIORITY_DEFAULT;
 
 public abstract class Task {
 
@@ -41,16 +38,22 @@ public abstract class Task {
         latch.countDown();
     }
 
+    public void onPostExecute() {
+        for (Task task : children) {
+            task.doNotify();
+        }
+    }
+
     public boolean blockMainThread() {
         return false;
     }
 
-    public boolean onMainThread() {
+    public boolean inMainThread() {
         return false;
     }
 
-    public int priority() {
-        return THREAD_PRIORITY_DEFAULT;
+    public List<Task> getChildren() {
+        return children;
     }
 
     public int getDegree() {
@@ -59,16 +62,5 @@ public abstract class Task {
 
     public int decreaseDegree() {
         return --degree;
-    }
-
-    @NonNull
-    public List<Task> getChildren() {
-        return children;
-    }
-
-    public void onPostExecute() {
-        for (Task task : children) {
-            task.doNotify();
-        }
     }
 }

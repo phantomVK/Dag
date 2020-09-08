@@ -1,6 +1,7 @@
 package com.phantomvk.dag.app;
 
 import android.app.Application;
+import android.os.Process;
 
 import com.phantomvk.dag.app.task.AppComputeTask0;
 import com.phantomvk.dag.app.task.AppComputeTask1;
@@ -36,7 +37,7 @@ public class MyApplication extends Application {
                 .addTask(new AppComputeTask9())
                 .addTask(new AppComputeTask10())
                 .addTask(new AppComputeTask11())
-                .setTimeout(5, TimeUnit.SECONDS)
+                .setPriority(Process.THREAD_PRIORITY_URGENT_DISPLAY)
                 .start();
     }
 }

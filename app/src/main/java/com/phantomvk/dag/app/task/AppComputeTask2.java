@@ -13,7 +13,7 @@ public class AppComputeTask2 extends ComputeTask {
     @Override
     public void onExecute() {
         try {
-            Thread.sleep(5000);
+            Thread.sleep(2000);
             Log.e(this.getClass().getName(), "Finished");
         } catch (InterruptedException e) {
             e.printStackTrace();
