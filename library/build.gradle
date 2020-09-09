@@ -40,7 +40,7 @@ group = "com.phantomvk.dag"
 ext {
     libraryName = 'Dag'
     artifact = 'dag'
-    libraryDescription = 'Use directed acyclic graphs to organize tasks in Android.'
+    libraryDescription = 'A directed acyclic graphs scheduler to organize tasks in Android.'
 
     siteUrl = 'https://github.com/phantomVK/dag'
     gitUrl = 'https://github.com/phantomVK/dag.git'

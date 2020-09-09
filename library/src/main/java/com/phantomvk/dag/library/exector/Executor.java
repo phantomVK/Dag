@@ -44,8 +44,14 @@ public class Executor {
     }
 
     public void doShutdown() {
-        if (mComputeExecutor != null) mComputeExecutor.shutdown();
-        if (mAsyncExecutor != null) mAsyncExecutor.shutdown();
+        if (mComputeExecutor != null && !mComputeExecutor.isShutdown()) {
+            mComputeExecutor.shutdown();
+        }
+
+        if (mAsyncExecutor != null && !mAsyncExecutor.isShutdown()) {
+            mAsyncExecutor.shutdown();
+        }
+
         sInstance = null;
     }
 

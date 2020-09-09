@@ -28,11 +28,6 @@ public final class Dag {
     private static volatile Dag sInstance;
 
     /**
-     * {@link Dag#start()} can be called only once.
-     */
-    private boolean running;
-
-    /**
      * CountDownLatch to block MainThread.
      */
     private CountDownLatch latch;
@@ -46,6 +41,11 @@ public final class Dag {
      * Thread priority, see {@link android.os.Process}.
      */
     private int priority;
+
+    /**
+     * Auto shutdown ExecuteService after all tasks finished.
+     */
+    private volatile boolean autoShutdown = true;
 
     /**
      * Task list, for more information, see {@link Task}.
@@ -107,13 +107,6 @@ public final class Dag {
             throw new RuntimeException("Dag::start() must run on MainThread.");
         }
 
-        // Method scope.
-        if (running) {
-            throw new RuntimeException("Dag::start() should not be called more than once.");
-        } else {
-            running = true;
-        }
-
         onVerify();
         onPrepare();
         onDispatch();
@@ -164,6 +157,8 @@ public final class Dag {
         for (Task task : mainThreadTasks) {
             task.onExecute();
         }
+
+        tasks.clear();
     }
 
     private void await() {
@@ -181,7 +176,7 @@ public final class Dag {
     }
 
     private void shutdown() {
-        if (taskCount.decrementAndGet() == 0) {
+        if (autoShutdown && taskCount.decrementAndGet() == 0) {
             Executor.shutdown();
             sInstance = null;
         }
@@ -195,6 +190,17 @@ public final class Dag {
      */
     public Dag setPriority(int priority) {
         this.priority = priority;
+        return this;
+    }
+
+    /**
+     * Auto shutdown ExecuteService after all tasks finished.
+     *
+     * @param value boolean
+     * @return Dag instance
+     */
+    public Dag setAutoShutdown(boolean value) {
+        autoShutdown = value;
         return this;
     }
 
