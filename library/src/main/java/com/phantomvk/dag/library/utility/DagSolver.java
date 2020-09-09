@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 public class DagSolver {
+
     public static void solve(List<Task> tasks) {
         int size = tasks.size();
         Deque<Task> queue = new ArrayDeque<>();

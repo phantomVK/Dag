@@ -37,7 +37,6 @@ public class MyApplication extends Application {
                 .addTask(new AppComputeTask9())
                 .addTask(new AppComputeTask10())
                 .addTask(new AppComputeTask11())
-                .setPriority(Process.THREAD_PRIORITY_URGENT_DISPLAY)
                 .start();
     }
 }

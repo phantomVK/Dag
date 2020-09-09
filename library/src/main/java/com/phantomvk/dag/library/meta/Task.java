@@ -1,5 +1,7 @@
 package com.phantomvk.dag.library.meta;
 
+import android.os.Process;
+
 import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
@@ -8,8 +10,16 @@ import java.util.concurrent.CountDownLatch;
 
 public abstract class Task {
 
+    /**
+     * Task in-degree.
+     */
     private int degree;
+
+    /**
+     * The list of tasks that depend on this task.
+     */
     private final List<Task> children;
+
     private final CountDownLatch latch;
 
     {
@@ -24,7 +34,7 @@ public abstract class Task {
         return null;
     }
 
-    public void doAwait() {
+    public void onPreExecute() {
         try {
             latch.await();
         } catch (InterruptedException e) {
@@ -34,13 +44,9 @@ public abstract class Task {
 
     public abstract void onExecute();
 
-    public void doNotify() {
-        latch.countDown();
-    }
-
     public void onPostExecute() {
         for (Task task : children) {
-            task.doNotify();
+            task.latch.countDown();
         }
     }
 
@@ -50,6 +56,10 @@ public abstract class Task {
 
     public boolean inMainThread() {
         return false;
+    }
+
+    public int getPriority() {
+        return Process.THREAD_PRIORITY_BACKGROUND;
     }
 
     public List<Task> getChildren() {

@@ -18,19 +18,19 @@ public class Executor {
     private static final int MAXIMUM_POOL_SIZE = 2 * CPU_COUNT + 1;
     private static final int KEEP_ALIVE_SECONDS = 3;
 
-    private static Executor sInstance;
+    private static volatile Executor sInstance;
+
     private ExecutorService mComputeExecutor;
     private ExecutorService mAsyncExecutor;
 
     private final AtomicInteger mCount = new AtomicInteger(1);
     private final ThreadFactory mFactory = r -> new Thread(r, "Dag #" + mCount.getAndIncrement());
 
-    public static Executor getInstance() {
-        if (sInstance == null) {
-            sInstance = new Executor();
-        }
+    private Executor() {
+    }
 
-        return sInstance;
+    public static Executor getInstance() {
+        return (sInstance == null) ? (sInstance = new Executor()) : sInstance;
     }
 
     public static void shutdown() {
@@ -38,9 +38,6 @@ public class Executor {
             sInstance.doShutdown();
             sInstance = null;
         }
-    }
-
-    private Executor() {
     }
 
     public void doShutdown() {

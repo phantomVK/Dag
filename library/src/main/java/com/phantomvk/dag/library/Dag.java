@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Use directed acyclic graphs to organize tasks in Android.
+ * A directed acyclic graphs scheduler to organize tasks in Android.
  */
 public final class Dag {
 
@@ -36,11 +36,6 @@ public final class Dag {
      * Count down to shutdown ExecuteService until {@param taskCount} is 0.
      */
     private AtomicInteger taskCount;
-
-    /**
-     * Thread priority, see {@link android.os.Process}.
-     */
-    private int priority;
 
     /**
      * Auto shutdown ExecuteService after all tasks finished.
@@ -73,7 +68,6 @@ public final class Dag {
 
     private Dag(Context context) {
         tasks = new ArrayList<>();
-        priority = Process.THREAD_PRIORITY_BACKGROUND;
         inMainProcess = ProcessUtility.inMainProcess(context);
     }
 
@@ -155,7 +149,7 @@ public final class Dag {
         }
 
         for (Task task : mainThreadTasks) {
-            task.onExecute();
+            new TaskWorker(task).run();
         }
 
         tasks.clear();
@@ -180,17 +174,6 @@ public final class Dag {
             Executor.shutdown();
             sInstance = null;
         }
-    }
-
-    /**
-     * Set thread priority.
-     *
-     * @param priority see {@link Process}.
-     * @return Dag instance
-     */
-    public Dag setPriority(int priority) {
-        this.priority = priority;
-        return this;
     }
 
     /**
@@ -227,8 +210,8 @@ public final class Dag {
 
         @Override
         public void run() {
-            Process.setThreadPriority(priority);
-            mTask.doAwait();
+            Process.setThreadPriority(mTask.getPriority());
+            mTask.onPreExecute();
             mTask.onExecute();
             mTask.onPostExecute();
             notifyMainThread(mTask);
