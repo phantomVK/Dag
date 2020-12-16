@@ -1,22 +1,18 @@
 package com.phantomvk.dag.library.exector;
 
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionHandler;
-import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class Executor {
 
     private static final int CPU_COUNT = Runtime.getRuntime().availableProcessors();
-    private static final int CORE_POOL_SIZE = 1;
-    private static final int MAXIMUM_POOL_SIZE = 2 * CPU_COUNT + 1;
-    private static final int KEEP_ALIVE_SECONDS = 3;
+    private static final int CORE_POOL_SIZE = CPU_COUNT + 1;
+    private static final int MAXIMUM_POOL_SIZE = CPU_COUNT + 1;
 
     private static volatile Executor sInstance;
 
@@ -54,10 +50,9 @@ public class Executor {
 
     public ExecutorService computeExecutor() {
         if (mComputeExecutor == null) {
-            BlockingQueue<Runnable> queue = new SynchronousQueue<>();
-            RejectedExecutionHandler handler = new ThreadPoolExecutor.CallerRunsPolicy();
             mComputeExecutor = new ThreadPoolExecutor(CORE_POOL_SIZE, MAXIMUM_POOL_SIZE,
-                    KEEP_ALIVE_SECONDS, SECONDS, queue, mFactory, handler);
+                    0L, TimeUnit.MILLISECONDS,
+                    new LinkedBlockingQueue<>());
         }
 
         return mComputeExecutor;

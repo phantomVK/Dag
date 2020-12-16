@@ -4,13 +4,13 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 
-import com.phantomvk.dag.library.meta.Task;
 import com.phantomvk.dag.library.meta.ComputeTask;
+import com.phantomvk.dag.library.meta.Task;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class AppComputeTask3 extends ComputeTask {
+public class AppComputeTask12 extends ComputeTask {
 
     @Override
     public void onExecute() {
@@ -22,11 +22,21 @@ public class AppComputeTask3 extends ComputeTask {
         }
     }
 
+    @Override
+    public boolean blockMainThread() {
+        return true;
+    }
+
+    @Override
+    public boolean onMainThread() {
+        return true;
+    }
+
     @Nullable
     @Override
     public List<Class<? extends Task>> dependsOn() {
         List<Class<? extends Task>> dependsOn = new ArrayList<>();
-        dependsOn.add(AppComputeTask11.class);
+        dependsOn.add(AppComputeTask3.class);
         return dependsOn;
     }
 }

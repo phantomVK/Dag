@@ -3,13 +3,13 @@ package com.phantomvk.dag.library;
 import android.content.Context;
 import android.os.Looper;
 import android.os.Process;
+import android.util.Log;
 
 import com.phantomvk.dag.library.exector.Executor;
 import com.phantomvk.dag.library.meta.AsyncTask;
 import com.phantomvk.dag.library.meta.ComputeTask;
 import com.phantomvk.dag.library.meta.Task;
 import com.phantomvk.dag.library.utility.DagSolver;
-import com.phantomvk.dag.library.utility.ProcessUtility;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -46,10 +46,9 @@ public final class Dag {
      * Task list, for more information, see {@link Task}.
      */
     private final List<Task> tasks;
-    private final boolean inMainProcess;
 
     // Dag global timeout.
-    private long timeout = 60 * 1000; // 60s
+    private long timeout = Long.MAX_VALUE;
     private TimeUnit timeUnit = TimeUnit.MILLISECONDS;
 
     public static Dag getInstance(Context context) {
@@ -68,7 +67,6 @@ public final class Dag {
 
     private Dag(Context context) {
         tasks = new ArrayList<>();
-        inMainProcess = ProcessUtility.inMainProcess(context);
     }
 
     /**
@@ -82,6 +80,10 @@ public final class Dag {
             throw new NullPointerException("Task should not be null.");
         }
 
+        if (Looper.getMainLooper() != Looper.myLooper()) {
+            throw new RuntimeException("Dag::addTask() must run on MainThread.");
+        }
+
         tasks.add(task);
 
         return this;
@@ -91,14 +93,13 @@ public final class Dag {
      * Start to execute tasks, this method can be called only once.
      */
     public void start() {
-        // Process scope.
-        if (!inMainProcess) {
-            throw new RuntimeException("Dag::start() must run on main process.");
-        }
-
         // Thread scope.
         if (Looper.getMainLooper() != Looper.myLooper()) {
             throw new RuntimeException("Dag::start() must run on MainThread.");
+        }
+
+        if (tasks.isEmpty()) {
+            throw new RuntimeException("No task was added to Dag.");
         }
 
         onVerify();
@@ -113,7 +114,7 @@ public final class Dag {
             Class<? extends Task> clazz = task.getClass();
 
             if (set.contains(clazz)) {
-                throw new RuntimeException("Duplicate class type found: " + clazz.getName());
+                throw new RuntimeException("Duplicated class found: " + clazz.getName());
             } else {
                 set.add(clazz);
             }
@@ -124,35 +125,46 @@ public final class Dag {
         DagSolver.solve(tasks);
         taskCount = new AtomicInteger(tasks.size());
 
-        // The count of tasks that MainThread should block and wait.
+        // The count of tasks that MainThread should be blocked and wait to.
         int blockCount = 0;
-        for (Task t : tasks) if (t.blockMainThread()) blockCount++;
+
+        for (Task t : tasks) {
+            if (t.blockMainThread()) {
+                blockCount++;
+            }
+        }
+
         latch = new CountDownLatch(blockCount);
     }
 
     private void onDispatch() {
-        List<Task> subThreadTasks = new ArrayList<>();
+        List<Task> asyncTasks = new ArrayList<>();
         List<Task> mainThreadTasks = new ArrayList<>();
 
         for (Task task : tasks) {
-            List<Task> l = (task.inMainThread() ? mainThreadTasks : subThreadTasks);
-            l.add(task);
+            if (task.onMainThread()) {
+                mainThreadTasks.add(task);
+            } else {
+                asyncTasks.add(task);
+            }
         }
+
+        // Decrease memory usage.
+        tasks.clear();
 
         Executor executor = Executor.getInstance();
         ExecutorService compute = executor.computeExecutor();
         ExecutorService async = executor.asyncExecutor();
 
-        for (Task task : subThreadTasks) {
+        for (Task task : asyncTasks) {
             ExecutorService service = (task instanceof ComputeTask) ? compute : async;
             service.execute(new TaskWorker(task));
         }
 
+        final MainThreadWorker mainThreadWorker = new MainThreadWorker();
         for (Task task : mainThreadTasks) {
-            new TaskWorker(task).run();
+            mainThreadWorker.setTask(task).run();
         }
-
-        tasks.clear();
     }
 
     private void await() {
@@ -173,6 +185,7 @@ public final class Dag {
         if (autoShutdown && taskCount.decrementAndGet() == 0) {
             Executor.shutdown();
             sInstance = null;
+            Log.i("Dag", "shutdown now.");
         }
     }
 
@@ -202,20 +215,31 @@ public final class Dag {
 
     private class TaskWorker implements Runnable {
 
-        private final Task mTask;
+        protected Task task;
 
         public TaskWorker(Task task) {
-            mTask = task;
+            this.task = task;
         }
 
         @Override
         public void run() {
-            Process.setThreadPriority(mTask.getPriority());
-            mTask.onPreExecute();
-            mTask.onExecute();
-            mTask.onPostExecute();
-            notifyMainThread(mTask);
+            Process.setThreadPriority(task.getPriority());
+            task.onPreExecute();
+            task.onExecute();
+            task.onPostExecute();
+            notifyMainThread(task);
             shutdown();
+        }
+    }
+
+    private class MainThreadWorker extends TaskWorker {
+        public MainThreadWorker() {
+            super(null);
+        }
+
+        private Runnable setTask(Task task) {
+            this.task = task;
+            return this;
         }
     }
 }

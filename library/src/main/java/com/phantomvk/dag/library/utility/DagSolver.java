@@ -39,7 +39,7 @@ public class DagSolver {
             size--;
 
             for (Task child : task.getChildren()) {
-                if (child.decreaseDegree() == 0) {
+                if (child.decreaseAndGetDegree() == 0) {
                     queue.addLast(child);
                 }
             }

@@ -2,6 +2,7 @@ package com.phantomvk.dag.library.meta;
 
 import android.os.Process;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
@@ -54,7 +55,7 @@ public abstract class Task {
         return false;
     }
 
-    public boolean inMainThread() {
+    public boolean onMainThread() {
         return false;
     }
 
@@ -62,11 +63,12 @@ public abstract class Task {
         return Process.THREAD_PRIORITY_BACKGROUND;
     }
 
+    @NonNull
     public List<Task> getChildren() {
         return children;
     }
 
-    public int decreaseDegree() {
+    public int decreaseAndGetDegree() {
         return --degree;
     }
 }
