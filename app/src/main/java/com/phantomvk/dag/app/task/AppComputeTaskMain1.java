@@ -10,21 +10,11 @@ import com.phantomvk.dag.library.meta.Task;
 import java.util.ArrayList;
 import java.util.List;
 
-public class AppComputeTask12 extends ComputeTask {
+public class AppComputeTaskMain1 extends ComputeTask {
 
     @Override
     public void onExecute() {
-        try {
-            Thread.sleep(1000);
-            Log.e(this.getClass().getName(), "Finished");
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-
-    @Override
-    public boolean blockMainThread() {
-        return true;
+        Log.e(this.getClass().getName(), "Finished");
     }
 
     @Override
@@ -35,8 +25,8 @@ public class AppComputeTask12 extends ComputeTask {
     @Nullable
     @Override
     public List<Class<? extends Task>> dependsOn() {
-        List<Class<? extends Task>> dependsOn = new ArrayList<>();
-        dependsOn.add(AppComputeTask3.class);
-        return dependsOn;
+        List<Class<? extends Task>> tasks = new ArrayList<>(1);
+        tasks.add(AppComputeTaskMain0.class);
+        return tasks;
     }
 }

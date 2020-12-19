@@ -28,8 +28,15 @@ public class DagSolver {
                 continue;
             }
 
-            for (Class<? extends Task> prevTask : list) {
-                map.get(prevTask).getChildren().add(task);
+            for (Class<? extends Task> parentTask : list) {
+                Task parent = map.get(parentTask);
+                if (parent == null) {
+                    throw new RuntimeException("The class named \""
+                            + parentTask.getName()
+                            + "\" should be added before starting Dag.");
+                } else {
+                    parent.getChildren().add(task);
+                }
             }
         }
 
@@ -39,7 +46,7 @@ public class DagSolver {
             size--;
 
             for (Task child : task.getChildren()) {
-                if (child.decreaseAndGetDegree() == 0) {
+                if (child.decrementAndGetDegree() == 0) {
                     queue.addLast(child);
                 }
             }

@@ -68,7 +68,7 @@ public abstract class Task {
         return children;
     }
 
-    public int decreaseAndGetDegree() {
+    public int decrementAndGetDegree() {
         return --degree;
     }
 }
