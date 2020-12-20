@@ -52,7 +52,7 @@ public final class Dag {
     private TimeUnit timeUnit = TimeUnit.MILLISECONDS;
 
     public static Dag getInstance(Context context) {
-        if (context == null) throw new NullPointerException("Context should be null.");
+        if (context == null) throw new NullPointerException("Context should not be null.");
 
         if (sInstance == null) {
             synchronized (Dag.class) {
@@ -161,9 +161,9 @@ public final class Dag {
             service.execute(new TaskWorker(task));
         }
 
-        final MainThreadWorker mainThreadWorker = new MainThreadWorker();
+        final MainWorker worker = new MainWorker();
         for (Task task : mainThreadTasks) {
-            mainThreadWorker.setTask(task).run();
+            worker.setTask(task).run();
         }
     }
 
@@ -232,8 +232,8 @@ public final class Dag {
         }
     }
 
-    private class MainThreadWorker extends TaskWorker {
-        public MainThreadWorker() {
+    private class MainWorker extends TaskWorker {
+        public MainWorker() {
             super(null);
         }
 

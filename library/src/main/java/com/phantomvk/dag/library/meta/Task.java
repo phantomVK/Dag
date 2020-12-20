@@ -21,6 +21,9 @@ public abstract class Task {
      */
     private final List<Task> children;
 
+    /**
+     * CountDownLatch to wait until all parent tasks finished.
+     */
     private final CountDownLatch latch;
 
     {
@@ -30,6 +33,11 @@ public abstract class Task {
         children = new ArrayList<>();
     }
 
+    /**
+     * The list contains all parent tasks this task depends on.
+     *
+     * @return nullable list
+     */
     @Nullable
     public List<Class<? extends Task>> dependsOn() {
         return null;
@@ -51,10 +59,16 @@ public abstract class Task {
         }
     }
 
+    /**
+     * Main thread should wait until this task finished.
+     */
     public boolean blockMainThread() {
         return false;
     }
 
+    /**
+     * This task should run on main thread.
+     */
     public boolean onMainThread() {
         return false;
     }
@@ -63,6 +77,9 @@ public abstract class Task {
         return Process.THREAD_PRIORITY_BACKGROUND;
     }
 
+    /**
+     * Get all children tasks. The list is NonNull, but it maybe empty.
+     */
     @NonNull
     public List<Task> getChildren() {
         return children;

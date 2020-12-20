@@ -11,6 +11,11 @@ import java.util.Map;
 
 public class DagSolver {
 
+    /**
+     * Sort all elements in list to new order using directed acyclic graph.
+     *
+     * @param tasks list to sort
+     */
     public static void solve(List<Task> tasks) {
         int size = tasks.size();
         Deque<Task> queue = new ArrayDeque<>();
@@ -22,19 +27,23 @@ public class DagSolver {
         }
 
         for (Task task : tasks) {
-            List<Class<? extends Task>> list = task.dependsOn();
-            if (list == null || list.isEmpty()) {
+            List<Class<? extends Task>> parentList = task.dependsOn();
+            // This task depends on no task, so add to queue.
+            if (parentList == null || parentList.isEmpty()) {
                 queue.addLast(task);
                 continue;
             }
 
-            for (Class<? extends Task> parentTask : list) {
+            // This task depends on at least one parent task.
+            for (Class<? extends Task> parentTask : parentList) {
                 Task parent = map.get(parentTask);
                 if (parent == null) {
+                    // Remind developer to add parent class in android.Application.
                     throw new RuntimeException("The class named \""
                             + parentTask.getName()
                             + "\" should be added before starting Dag.");
                 } else {
+                    // Add this task to parents' children task list.
                     parent.getChildren().add(task);
                 }
             }
